@@ -168,7 +168,44 @@ function simLocal(now) {
 }
 
 // ---------------- sonido (Web Audio) ----------------
-var ac = null, tonosActivos = [];
+var ac = null, masterGain = null, tonosActivos = [];
+
+var audioEnabled = true;
+
+try {
+  audioEnabled = localStorage.getItem('lionAudio') !== 'off';
+} catch(e) {}
+
+function actualizarAudio() {
+  var b = $('audioBtn');
+  if (!b) return;
+
+  b.textContent = audioEnabled ? '🔊 AUDIO' : '🔇 MUTE';
+  b.classList.toggle('muted', !audioEnabled);
+  b.setAttribute('aria-pressed', String(audioEnabled));
+  b.title = audioEnabled ? 'Silenciar alarmas' : 'Activar sonido';
+}
+
+function cambiarAudio() {
+  audioEnabled = !audioEnabled;
+
+  try {
+    localStorage.setItem('lionAudio', audioEnabled ? 'on' : 'off');
+  } catch(e) {}
+
+  if (masterGain && ac) {
+    masterGain.gain.setTargetAtTime(
+      audioEnabled ? 1 : 0,
+      ac.currentTime,
+      0.015
+    );
+  }
+
+  actualizarAudio();
+}
+
+$('audioBtn').addEventListener('click', cambiarAudio);
+actualizarAudio();
 function tono(f, dur, tipo, vol, retraso) {
   if (!ac) return null;
   var t = ac.currentTime + (retraso || 0), o = ac.createOscillator(), g = ac.createGain();
@@ -177,7 +214,8 @@ function tono(f, dur, tipo, vol, retraso) {
   g.gain.exponentialRampToValueAtTime(vol || 0.2, t + 0.008);
   g.gain.setValueAtTime(vol || 0.2, t + Math.max(dur - 0.02, 0.01));
   g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-  o.connect(g); g.connect(ac.destination);
+  o.connect(g);
+g.connect(masterGain || ac.destination);
   o.start(t); o.stop(t + dur + 0.03);
   return o;
 }
@@ -193,7 +231,10 @@ function sonidoCarga() {
   g.gain.exponentialRampToValueAtTime(0.07, t + 0.1);
   g.gain.setValueAtTime(0.07, t + T_CARGA / 1000 - 0.02);
   g.gain.exponentialRampToValueAtTime(0.0001, t + T_CARGA / 1000);
-  o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t + T_CARGA / 1000 + 0.05);
+  o.connect(g);
+g.connect(masterGain || ac.destination);
+o.start(t);
+o.stop(t + T_CARGA / 1000 + 0.05);
   tonosActivos.push(o);
 }
 function alarmaMedia() { for (var i = 0; i < 3; i++) tono(660, 0.13, 'square', 0.06, i * 0.22); }
@@ -344,8 +385,16 @@ requestAnimationFrame(cuadro);
 
 // ---------------- pantalla completa + sonido ----------------
 function iniciar() {
-  if (!ac) { try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} }
-  if (ac && ac.resume) ac.resume();
+if (!ac) {
+  try {
+    ac = new (window.AudioContext || window.webkitAudioContext)();
+    masterGain = ac.createGain();
+    masterGain.gain.value = audioEnabled ? 1 : 0;
+    masterGain.connect(ac.destination);
+  } catch (e) {}
+}
+
+if (ac && ac.resume) ac.resume();
   var d = document.documentElement, rf = d.requestFullscreen || d.webkitRequestFullscreen;
   if (rf) {
     try {
