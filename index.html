@@ -31,6 +31,147 @@ header .der{text-align:right}
   border-color:#806b24;
   background:#29230e;
 }
+ 
+/* ---------------- EE-ONE-D SCAN ---------------- */
+
+#scanBtn {
+  background: #15251b;
+  color: #19ff6a;
+  border: 1px solid #31543c;
+  border-radius: 5px;
+  padding: .7vh 1.2vw;
+  margin-right: 1vw;
+  font-size: 2.5vh;
+  font-weight: 700;
+  letter-spacing: .06em;
+  cursor: pointer;
+}
+
+#scanBtn:active {
+  background: #254b32;
+  box-shadow: 0 0 12px #19ff6a;
+}
+
+#scanBtn:disabled {
+  opacity: .5;
+  cursor: wait;
+}
+
+#scanFx {
+  position: fixed;
+  inset: 0;
+  display: none;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 6;
+}
+
+#scanFx .scan-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -5%;
+  width: 5%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(25,255,106,.12),
+    rgba(25,255,106,.85),
+    rgba(25,255,106,.12),
+    transparent
+  );
+  box-shadow: 0 0 35px rgba(25,255,106,.7);
+}
+
+body.scanning #scanFx {
+  display: block;
+}
+
+body.scanning .scan-line {
+  animation: scanSweep 3.5s ease-in-out forwards;
+}
+
+@keyframes scanSweep {
+  0%   { left: -5%; }
+  100% { left: 105%; }
+}
+
+/* Vibración breve de la interfaz */
+
+body.scan-shake #app {
+  animation: scanShake .09s linear infinite;
+}
+
+@keyframes scanShake {
+  0%   { transform: translate(0,0); }
+  25%  { transform: translate(2px,-1px); }
+  50%  { transform: translate(-2px,1px); }
+  75%  { transform: translate(1px,2px); }
+  100% { transform: translate(-1px,-2px); }
+}
+
+/* Resultado del escaneo */
+
+#scanResult {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,8,3,.88);
+  z-index: 7;
+  text-align: center;
+  padding: 5vw;
+  box-sizing: border-box;
+}
+
+#scanResult.show {
+  display: flex;
+  animation: resultAppear .35s ease-out;
+}
+
+.result-panel {
+  width: min(85vw, 650px);
+  border: 1px solid #19ff6a;
+  background: #07130b;
+  padding: 4vh 4vw;
+  box-shadow: 0 0 25px rgba(25,255,106,.22);
+}
+
+.result-title {
+  color: #19ff6a;
+  font-size: 5vh;
+  font-weight: 800;
+  letter-spacing: .16em;
+}
+
+.result-status {
+  color: #8da99a;
+  font-size: 2.5vh;
+  margin-top: 2vh;
+  letter-spacing: .15em;
+}
+
+.result-message {
+  color: #19ff6a;
+  font-size: 3.5vh;
+  font-weight: 800;
+  margin-top: 4vh;
+  letter-spacing: .08em;
+}
+
+.result-footer {
+  color: #8da99a;
+  font-size: 1.8vh;
+  margin-top: 3vh;
+  letter-spacing: .1em;
+}
+
+@keyframes resultAppear {
+  from { opacity: 0; transform: scale(.97); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
 #alarma{padding:.5vh 2.4vw;border-radius:.5vh;font-weight:700;letter-spacing:.14em;font-size:3.8vh;visibility:hidden}
 #alarma.alta{visibility:visible;background:#ff1e3c;color:#fff;animation:destello 1s steps(1) infinite}
 #alarma.media{visibility:visible;background:#ffd21f;color:#1a1400}
@@ -69,7 +210,8 @@ header .der{text-align:right}
  <header>
   <div id="pac"></div>
   <div id="alarma">ALARMA</div>
-  <div class="der">
+<div class="der">
+  <button id="scanBtn" type="button">EE-ONE-D / SCAN</button>
   <button id="audioBtn" type="button" aria-pressed="true">🔊 AUDIO</button>
   <span id="enlace"></span>
   <span id="reloj">--:--:--</span>
@@ -108,6 +250,18 @@ header .der{text-align:right}
  </div>
 </div>
 <div id="flash"></div>
+ <div id="scanFx">
+  <div class="scan-line"></div>
+</div>
+
+<div id="scanResult">
+  <div class="result-panel">
+    <div class="result-title">EE-ONE-D</div>
+    <div class="result-status">SCAN COMPLETE</div>
+    <div class="result-message">NO INFECTED DETECTED</div>
+    <div class="result-footer">SURVEILLANCE SYSTEM · ALL CLEAR</div>
+  </div>
+</div>
 <div id="inicio"><b>TOCA PARA INICIAR</b><span id="estadoEnlace">Buscando monitor...</span></div>
 <script>
 var PACIENTE = 'CAMA 07  ·  ADULTO';      // texto de la esquina superior izquierda
@@ -169,6 +323,53 @@ function simLocal(now) {
 
 // ---------------- sonido (Web Audio) ----------------
 var ac = null, masterGain = null, tonosActivos = [];
+ 
+/* ---------------- EE-ONE-D SCAN ---------------- */
+
+var scanRunning = false;
+
+function activarScan() {
+  if (scanRunning) return;
+
+  scanRunning = true;
+
+  var btn = $('scanBtn');
+  var result = $('scanResult');
+
+  btn.disabled = true;
+  btn.textContent = 'SCANNING...';
+
+  result.classList.remove('show');
+
+  document.body.classList.add('scanning');
+
+  // Activar vibración visual durante el barrido
+  setTimeout(function() {
+    document.body.classList.add('scan-shake');
+  }, 250);
+
+  // Finalizar el barrido
+  setTimeout(function() {
+    document.body.classList.remove('scanning');
+    document.body.classList.remove('scan-shake');
+
+    result.classList.add('show');
+
+    btn.disabled = false;
+    btn.textContent = 'EE-ONE-D / SCAN';
+
+    scanRunning = false;
+  }, 3800);
+}
+
+// Botón de activación
+$('scanBtn').addEventListener('click', activarScan);
+
+// Cerrar el resultado al pulsar sobre él
+$('scanResult').addEventListener('click', function() {
+  $('scanResult').classList.remove('show');
+});
+
 
 var audioEnabled = true;
 
