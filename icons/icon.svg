@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="92" fill="#050907"/>
+  <path d="M42 256h88l28-54 43 111 48-174 49 226 36-109h56" fill="none" stroke="#19ff6a" stroke-width="19" stroke-linecap="square" stroke-linejoin="miter"/>
+  <path d="M78 386h356" stroke="#294a36" stroke-width="8"/>
+  <text x="256" y="448" text-anchor="middle" fill="#dfe8e2" font-family="Arial,sans-serif" font-size="35" font-weight="700" letter-spacing="8">LION</text>
+</svg>
