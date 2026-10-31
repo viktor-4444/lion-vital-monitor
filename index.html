@@ -439,6 +439,85 @@ o.start(t);
 o.stop(t + T_CARGA / 1000 + 0.05);
   tonosActivos.push(o);
 }
+ 
+function sonidoScan() {
+  if (!ac || !masterGain) return;
+
+  var t = ac.currentTime;
+  var dur = 3.5;
+
+  // Zumbido mecánico grave
+  var osc = ac.createOscillator();
+  var gain = ac.createGain();
+
+  osc.type = 'sawtooth';
+  osc.frequency.setValueAtTime(110, t);
+  osc.frequency.exponentialRampToValueAtTime(42, t + dur);
+
+  gain.gain.setValueAtTime(0.0001, t);
+  gain.gain.linearRampToValueAtTime(0.12, t + 0.7);
+  gain.gain.setValueAtTime(0.12, t + 2.2);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+
+  osc.connect(gain);
+  gain.connect(masterGain);
+
+  osc.start(t);
+  osc.stop(t + dur);
+
+  // Armónico resonante
+  var sub = ac.createOscillator();
+  var subGain = ac.createGain();
+
+  sub.type = 'sine';
+  sub.frequency.setValueAtTime(65, t);
+  sub.frequency.exponentialRampToValueAtTime(28, t + dur);
+
+  subGain.gain.setValueAtTime(0.0001, t);
+  subGain.gain.linearRampToValueAtTime(0.16, t + 0.9);
+  subGain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+
+  sub.connect(subGain);
+  subGain.connect(masterGain);
+
+  sub.start(t);
+  sub.stop(t + dur);
+
+  // Ruido de aire
+  var buffer = ac.createBuffer(
+    1,
+    Math.ceil(ac.sampleRate * dur),
+    ac.sampleRate
+  );
+
+  var data = buffer.getChannelData(0);
+
+  for (var i = 0; i < data.length; i++) {
+    data[i] = Math.random() * 2 - 1;
+  }
+
+  var noise = ac.createBufferSource();
+  var filter = ac.createBiquadFilter();
+  var noiseGain = ac.createGain();
+
+  noise.buffer = buffer;
+
+  filter.type = 'lowpass';
+  filter.frequency.setValueAtTime(500, t);
+  filter.frequency.exponentialRampToValueAtTime(90, t + dur);
+
+  noiseGain.gain.setValueAtTime(0.0001, t);
+  noiseGain.gain.linearRampToValueAtTime(0.045, t + 1.2);
+  noiseGain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+
+  noise.connect(filter);
+  filter.connect(noiseGain);
+  noiseGain.connect(masterGain);
+
+  noise.start(t);
+  noise.stop(t + dur);
+}
+
 function alarmaMedia() { for (var i = 0; i < 3; i++) tono(660, 0.13, 'square', 0.06, i * 0.22); }
 
 // ---------------- signos vitales simulados ----------------
